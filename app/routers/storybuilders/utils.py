@@ -2,7 +2,6 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 from PIL.ImageChops import difference
 from sqlalchemy.orm import Session
 import numpy as np
-import svgutils.transform as sg
 
 
 def rgb_to_hex(rgb):
@@ -28,23 +27,6 @@ def generate_type_card(card_type):
     card.paste(contour, (0, 0))
     return card
 
-
-def generate_svg_card(card_type):
-    svg_card = sg.SVGFigure(400, 400)
-    contour = sg.fromfile("./app/routers/storybuilders/assets/Contour.svg").getroot()
-    contour.moveto(100, 100)
-    svg_card.append(contour)
-    return svg_card
-
-
-def generate_svg_recto_card(card, card_type):
-    svg_card = generate_svg_card(card_type)
-    return svg_card
-
-
-def generate_svg_verso_card(card, card_type):
-    svg_card = generate_svg_card(card_type)
-    return svg_card
 
 
 def generate_difficulty(difficulty, card_type):

@@ -7,8 +7,6 @@ from app.utils import get, create, edit, delete, APIException
 from app.routers.storybuilders.utils import (
     generate_recto_card,
     generate_verso_card,
-    generate_svg_recto_card,
-    generate_svg_verso_card,
 )
 from random import randrange
 import io
