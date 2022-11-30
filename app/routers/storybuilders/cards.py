@@ -6,8 +6,15 @@ from app import models, schemas
 from typing import List
 from app.utils import get, create, edit, delete, APIException
 from PIL import Image
-from app.routers.storybuilders.utils import generate_recto_card, generate_verso_card
+from app.routers.storybuilders.utils import (
+    generate_recto_card,
+    generate_verso_card,
+    generate_card_prints,
+)
 import io
+import os
+import datetime
+import tarfile
 
 router = APIRouter()
 
@@ -48,13 +55,59 @@ async def create_card(
 async def edit_card(payload: schemas.CardCollection, db: Session = Depends(get_db)):
     datas = payload.dict()
     # Invalid card images
+    for card in datas:
+        if os.path.isfile(
+            f"./app/routers/storybuilders/generated/cards/card_{card.id}_0.png"
+        ):
+            os.remove(
+                f"./app/routers/storybuilders/generated/cards/card_{card.id}_0.png"
+            )
+        if os.path.isfile(
+            f"./app/routers/storybuilders/generated/cards/card_{card.id}_1.png"
+        ):
+            os.remove(
+                f"./app/routers/storybuilders/generated/cards/card_{card.id}_1.png"
+            )
     return edit(db, models.Card, datas, "id")
 
 
 @router.post("/delete", response_model=schemas.DefaultResponse)
 async def delete_card(payload: schemas.DeleteId, db: Session = Depends(get_db)):
     data = payload.dict()
-    return delete(db, models.Card, (models.Card.id == data["id"]))
+    card_id = data["id"]
+    # Delete card images
+    if os.path.isfile(
+        f"./app/routers/storybuilders/generated/cards/card_{card_id}_0.png"
+    ):
+        os.remove(f"./app/routers/storybuilders/generated/cards/card_{card_id}_0.png")
+    if os.path.isfile(
+        f"./app/routers/storybuilders/generated/cards/card_{card_id}_1.png"
+    ):
+        os.remove(f"./app/routers/storybuilders/generated/cards/card_{card_id}_1.png")
+    return delete(db, models.Card, (models.Card.id == card_id))
+
+
+def get_or_create_card_image(card, card_type, face, card_id):
+    if os.path.isfile(
+        f"./app/routers/storybuilders/generated/cards/card_{card_id}_{face}.png"
+    ):
+        f = open(
+            f"./app/routers/storybuilders/generated/cards/card_{card_id}_{face}.png",
+            "rb",
+        )
+        return f
+    if face == 0:
+        card_img = generate_recto_card(card, card_type)
+    else:
+        card_img = generate_verso_card(card, card_type)
+
+    card_bytes = io.BytesIO()
+    card_img.save(
+        f"./app/routers/storybuilders/generated/cards/card_{card_id}_{face}.png", "png"
+    )
+    card_img.save(card_bytes, "png")
+    card_bytes.seek(0)
+    return card_bytes
 
 
 @router.get("/image/{card_id}/{face}", response_class=StreamingResponse)
@@ -65,71 +118,41 @@ def get_image(card_id: int, face: int, db: Session = Depends(get_db)):
         .filter(models.Card.id == card_id)
         .first()
     )
-    if face == 0:
-        card_img = generate_recto_card(card, card_type)
-    else:
-        card_img = generate_verso_card(card, card_type)
-
-    card_bytes = io.BytesIO()
-    card_img.save(card_bytes, "png")
-    card_bytes.seek(0)
-    return StreamingResponse(card_bytes, media_type="image/png")
-
-
-anchors_recto = {
-    1: (int(1691 / 4) * 1 - 400, 10),
-    2: (int(1691 / 4) * 2 - 400, 10),
-    3: (int(1691 / 4) * 3 - 400, 10),
-    4: (int(1691 / 4) * 1 - 400, 10 + int(2178 / 4) * 1),
-    5: (int(1691 / 4) * 2 - 400, 10 + int(2178 / 4) * 1),
-    6: (int(1691 / 4) * 3 - 400, 10 + int(2178 / 4) * 1),
-    7: (int(1691 / 4) * 1 - 400, 10 + int(2178 / 4) * 2),
-    8: (int(1691 / 4) * 2 - 400, 10 + int(2178 / 4) * 2),
-    9: (int(1691 / 4) * 3 - 400, 10 + int(2178 / 4) * 2),
-    10: (int(1691 / 4) * 1 - 400, 10 + int(2178 / 4) * 3),
-    11: (int(1691 / 4) * 2 - 400, 10 + int(2178 / 4) * 3),
-    12: (int(1691 / 4) * 3 - 400, 10 + int(2178 / 4) * 3),
-}
-
-anchors_verso = {
-    1: (1691 - int(1691 / 4) * 1, 10),
-    2: (1691 - int(1691 / 4) * 2, 10),
-    3: (1691 - int(1691 / 4) * 3, 10),
-    4: (1691 - int(1691 / 4) * 1, 10 + int(2178 / 4) * 1),
-    5: (1691 - int(1691 / 4) * 2, 10 + int(2178 / 4) * 1),
-    6: (1691 - int(1691 / 4) * 3, 10 + int(2178 / 4) * 1),
-    7: (1691 - int(1691 / 4) * 1, 10 + int(2178 / 4) * 2),
-    8: (1691 - int(1691 / 4) * 2, 10 + int(2178 / 4) * 2),
-    9: (1691 - int(1691 / 4) * 3, 10 + int(2178 / 4) * 2),
-    10: (1691 - int(1691 / 4) * 1, 10 + int(2178 / 4) * 3),
-    11: (1691 - int(1691 / 4) * 2, 10 + int(2178 / 4) * 3),
-    12: (1691 - int(1691 / 4) * 3, 10 + int(2178 / 4) * 3),
-}
+    data = get_or_create_card_image(card, card_type, face, card_id)
+    return StreamingResponse(data, media_type="image/png")
 
 
 @router.get("/generate_print/{start_id}/{end_id}", response_class=FileResponse)
 async def generate_print(start_id: int, end_id: int, db: Session = Depends(get_db)):
-    recto_name = (
-        f"./app/routers/storybuilders/generated/cards_{start_id}_{end_id}_recto.jpeg"
+    i = start_id
+    card_prints = []
+    while i <= end_id:
+        # print(i, (i + 11 if i + 11 < end_id else end_id))
+        card_prints.append(
+            generate_card_prints(i, (i + 11 if i + 11 < end_id else end_id), db)
+        )
+        i = i + 11
+    f_name = f"./app/routers/storybuilders/generated/generated_prints_{start_id}_{end_id}_{datetime.datetime.now().timestamp()}.tar.gz"
+    tar = tarfile.open(
+        f_name,
+        "w:gz",
     )
-    verso_name = (
-        f"./app/routers/storybuilders/generated/cards_{start_id}_{end_id}_verso.jpeg"
+    for filename in card_prints:
+        recto = open(filename[0][1], "rb")
+        recto_tar_info = tarfile.TarInfo(filename[0][0])
+        recto_tar_info.size = os.path.getsize(filename[0][1])
+        tar.addfile(recto_tar_info, recto)
+        verso = open(filename[1][1], "rb")
+        verso_tar_info = tarfile.TarInfo(filename[1][0])
+        verso_tar_info.size = os.path.getsize(filename[1][1])
+        tar.addfile(verso_tar_info, verso)
+    tar.close()
+    f = open(
+        f_name,
+        "rb",
     )
-    # Planche d'impression
-    recto = Image.new(mode="RGBA", size=(1691, 2178), color=(255, 255, 255))
-    verso = Image.new(mode="RGBA", size=(1691, 2178), color=(255, 255, 255))
-    # Get data
-    cards = (
-        db.query(models.Card, models.CardType, models.CardExtension)
-        .join(models.CardType, models.CardExtension)
-        .filter(models.Card.id >= start_id, models.Card.id <= end_id)
-        .all()
-    )
-    i = 0
-    for card in cards:
-        i += 1
-        verso.paste(generate_verso_card(card[0], card[1]), anchors_verso[i])
-        recto.paste(generate_recto_card(card[0], card[1]), anchors_recto[i])
-
-    recto.convert("CMYK").save(recto_name)
-    verso.convert("CMYK").save(verso_name)
+    response = StreamingResponse(f, media_type="application/x-tgz")
+    response.headers[
+        "Content-Disposition"
+    ] = f"attachment; filename=generated_prints_{start_id}_{end_id}.tar.gz"
+    return response

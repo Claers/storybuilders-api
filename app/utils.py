@@ -65,7 +65,7 @@ def edit(db: Session, model: models.CustomBase, datas, filter_field):
 
 
 def delete(db: Session, model: models.CustomBase, filter_by):
-    item = model.filter(filter_by).first()
+    item = db.query(model).filter(filter_by).first()
     db.delete(item)
     db.commit()
     return {"message": "Deleted"}

@@ -2,7 +2,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 from PIL.ImageChops import difference
 from sqlalchemy.orm import Session
 import numpy as np
-import tarfile
+from app import models
 
 
 def rgb_to_hex(rgb):
@@ -70,38 +70,41 @@ def generate_recto_card(card, card_type):
     # Card canvas
     card_img = generate_type_card(card_type)
     # Card type
-    font = ImageFont.truetype(
-        "./app/routers/storybuilders/assets/fonts/Chewy-Regular.ttf", 24
+    font_title = ImageFont.truetype(
+        "./app/routers/storybuilders/assets/fonts/Chewy-Regular.ttf", 34
+    )
+    font_text = ImageFont.truetype(
+        "./app/routers/storybuilders/assets/fonts/Chewy-Regular.ttf", 29
     )
     draw = ImageDraw.Draw(card_img)
     card_w, card_h = card_img.size
-    _, _, type_box_w, _ = draw.textbbox((0, 0), card_type.name, font=font)
+    _, _, type_box_w, _ = draw.textbbox((0, 0), card_type.name, font=font_title)
     draw.text(
         ((card_w - type_box_w) / 2, 20),
         card_type.name,
         (0, 0, 0),
-        font=font,
+        font=font_title,
     )
     # Separator 1
     separator = Image.open("./app/routers/storybuilders/assets/CardSeparator2X.png")
     separator_w, separator_h = separator.size
     separator = separator.resize((separator_w + 45, separator_h))
     separator_w, separator_h = separator.size
-    separator_offset = (int(card_w / 2) - int(separator_w / 2), 20 + separator_h + 30)
+    separator_offset = (int(card_w / 2) - int(separator_w / 2), 25 + separator_h + 30)
     card_img.paste(separator, separator_offset, separator)
     # Card Text
     # create_card_text(card.name.replace("\\n", "\n"), draw, font, card_w, card_h)
     _, _, text_box_w, text_box_h = draw.textbbox(
-        (0, 40), card.name.replace("\\n", "\n"), font=font
+        (0, 40), card.name.replace("\\n", "\n"), font=font_text
     )
     draw.text(
         (
             50,
-            80,
+            85,
         ),
         card.name.replace("\\n", "\n").strip(),
         (0, 0, 0),
-        font=font,
+        font=font_text,
     )
     # Card Difficulty
     difficulty_img = generate_difficulty(card.difficulty, card_type)
@@ -121,7 +124,7 @@ def generate_verso_card(card, card_type):
     img_offset = (15, (400 - logo_h) // 2)
     card_img.paste(logo, img_offset, logo)
     font = ImageFont.truetype(
-        "./app/routers/storybuilders/assets/fonts/Chewy-Regular.ttf", 40
+        "./app/routers/storybuilders/assets/fonts/Chewy-Regular.ttf", 45
     )
     # Type Text
     draw = ImageDraw.Draw(card_img)
@@ -141,3 +144,66 @@ def generate_verso_card(card, card_type):
         (int(card_w / 5) + 20, card_h - difficulty_img_h - int(card_h / 4)),
     )
     return card_img
+
+
+anchors_recto = {
+    1: (int(1691 / 4) * 1 - 400, 10),
+    2: (int(1691 / 4) * 2 - 400, 10),
+    3: (int(1691 / 4) * 3 - 400, 10),
+    4: (int(1691 / 4) * 1 - 400, 10 + int(2178 / 4) * 1),
+    5: (int(1691 / 4) * 2 - 400, 10 + int(2178 / 4) * 1),
+    6: (int(1691 / 4) * 3 - 400, 10 + int(2178 / 4) * 1),
+    7: (int(1691 / 4) * 1 - 400, 10 + int(2178 / 4) * 2),
+    8: (int(1691 / 4) * 2 - 400, 10 + int(2178 / 4) * 2),
+    9: (int(1691 / 4) * 3 - 400, 10 + int(2178 / 4) * 2),
+    10: (int(1691 / 4) * 1 - 400, 10 + int(2178 / 4) * 3),
+    11: (int(1691 / 4) * 2 - 400, 10 + int(2178 / 4) * 3),
+    12: (int(1691 / 4) * 3 - 400, 10 + int(2178 / 4) * 3),
+}
+
+anchors_verso = {
+    1: (1691 - int(1691 / 4) * 1, 10),
+    2: (1691 - int(1691 / 4) * 2, 10),
+    3: (1691 - int(1691 / 4) * 3, 10),
+    4: (1691 - int(1691 / 4) * 1, 10 + int(2178 / 4) * 1),
+    5: (1691 - int(1691 / 4) * 2, 10 + int(2178 / 4) * 1),
+    6: (1691 - int(1691 / 4) * 3, 10 + int(2178 / 4) * 1),
+    7: (1691 - int(1691 / 4) * 1, 10 + int(2178 / 4) * 2),
+    8: (1691 - int(1691 / 4) * 2, 10 + int(2178 / 4) * 2),
+    9: (1691 - int(1691 / 4) * 3, 10 + int(2178 / 4) * 2),
+    10: (1691 - int(1691 / 4) * 1, 10 + int(2178 / 4) * 3),
+    11: (1691 - int(1691 / 4) * 2, 10 + int(2178 / 4) * 3),
+    12: (1691 - int(1691 / 4) * 3, 10 + int(2178 / 4) * 3),
+}
+
+
+def generate_card_prints(start_id, end_id, db):
+    recto_name = f"./app/routers/storybuilders/generated/prints/cards_{start_id}_{end_id}_recto.jpeg"
+    verso_name = f"./app/routers/storybuilders/generated/prints/cards_{start_id}_{end_id}_verso.jpeg"
+    # Planche d'impression
+    recto = Image.new(mode="RGBA", size=(1691, 2178), color=(255, 255, 255))
+    verso = Image.new(mode="RGBA", size=(1691, 2178), color=(255, 255, 255))
+    # Get data
+    cards = (
+        db.query(models.Card, models.CardType, models.CardExtension)
+        .join(models.CardType, models.CardExtension)
+        .filter(models.Card.id >= start_id, models.Card.id <= end_id)
+        .all()
+    )
+    i = 0
+    for card in cards:
+        i += 1
+        verso.paste(generate_verso_card(card[0], card[1]), anchors_verso[i])
+        recto.paste(generate_recto_card(card[0], card[1]), anchors_recto[i])
+    recto.convert("CMYK").save(recto_name)
+    verso.convert("CMYK").save(verso_name)
+    return (
+        (
+            f"cards_{start_id}_{end_id}_recto.jpeg",
+            f"./app/routers/storybuilders/generated/prints/cards_{start_id}_{end_id}_recto.jpeg",
+        ),
+        (
+            f"cards_{start_id}_{end_id}_verso.jpeg",
+            f"./app/routers/storybuilders/generated/prints/cards_{start_id}_{end_id}_verso.jpeg",
+        ),
+    )
