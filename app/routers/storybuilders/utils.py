@@ -2,6 +2,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 from PIL.ImageChops import difference
 from sqlalchemy.orm import Session
 import numpy as np
+import tarfile
 
 
 def rgb_to_hex(rgb):
@@ -26,7 +27,6 @@ def generate_type_card(card_type):
         contour = change_color(contour, ImageColor.getrgb(card_type.color))
     card.paste(contour, (0, 0))
     return card
-
 
 
 def generate_difficulty(difficulty, card_type):
@@ -132,5 +132,12 @@ def generate_verso_card(card, card_type):
         card_type.name,
         (0, 0, 0),
         font=font,
+    )
+    # Card Difficulty
+    difficulty_img = generate_difficulty(card.difficulty, card_type)
+    _, difficulty_img_h = difficulty_img.size
+    card_img.paste(
+        generate_difficulty(card.difficulty, card_type),
+        (int(card_w / 5) + 20, card_h - difficulty_img_h - int(card_h / 4)),
     )
     return card_img
