@@ -55,18 +55,19 @@ async def create_card(
 async def edit_card(payload: schemas.CardCollection, db: Session = Depends(get_db)):
     datas = payload.dict()
     # Invalid card images
-    for card in datas:
+    for card in datas["__root__"]:
+        card_id = card["id"]
         if os.path.isfile(
-            f"./app/routers/storybuilders/generated/cards/card_{card.id}_0.png"
+            f"./app/routers/storybuilders/generated/cards/card_{card_id}_0.png"
         ):
             os.remove(
-                f"./app/routers/storybuilders/generated/cards/card_{card.id}_0.png"
+                f"./app/routers/storybuilders/generated/cards/card_{card_id}_0.png"
             )
         if os.path.isfile(
-            f"./app/routers/storybuilders/generated/cards/card_{card.id}_1.png"
+            f"./app/routers/storybuilders/generated/cards/card_{card_id}_1.png"
         ):
             os.remove(
-                f"./app/routers/storybuilders/generated/cards/card_{card.id}_1.png"
+                f"./app/routers/storybuilders/generated/cards/card_{card_id}_1.png"
             )
     return edit(db, models.Card, datas, "id")
 
@@ -156,3 +157,14 @@ async def generate_print(start_id: int, end_id: int, db: Session = Depends(get_d
         "Content-Disposition"
     ] = f"attachment; filename=generated_prints_{start_id}_{end_id}.tar.gz"
     return response
+
+
+@router.get(
+    "/generate_print_img/{start_id}/{end_id}/{face}", response_class=FileResponse
+)
+async def generate_print(
+    start_id: int, end_id: int, face: int, db: Session = Depends(get_db)
+):
+    filenames = generate_card_prints(start_id, end_id, db)
+    f = open(filenames[face][1], "rb")
+    return StreamingResponse(f, media_type="image/png")
