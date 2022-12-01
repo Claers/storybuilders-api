@@ -88,7 +88,7 @@ async def delete_card(payload: schemas.DeleteId, db: Session = Depends(get_db)):
     return delete(db, models.Card, (models.Card.id == card_id))
 
 
-def get_or_create_card_image(card, card_type, face, card_id):
+def get_or_create_card_image(db, face, card_id):
     if os.path.isfile(
         f"./app/routers/storybuilders/generated/cards/card_{card_id}_{face}.png"
     ):
@@ -97,6 +97,12 @@ def get_or_create_card_image(card, card_type, face, card_id):
             "rb",
         )
         return f
+    card, card_type = (
+        db.query(models.Card, models.CardType)
+        .join(models.CardType)
+        .filter(models.Card.id == card_id)
+        .first()
+    )
     if face == 0:
         card_img = generate_recto_card(card, card_type)
     else:
@@ -113,13 +119,8 @@ def get_or_create_card_image(card, card_type, face, card_id):
 
 @router.get("/image/{card_id}/{face}", response_class=StreamingResponse)
 def get_image(card_id: int, face: int, db: Session = Depends(get_db)):
-    card, card_type = (
-        db.query(models.Card, models.CardType)
-        .join(models.CardType)
-        .filter(models.Card.id == card_id)
-        .first()
-    )
-    data = get_or_create_card_image(card, card_type, face, card_id)
+
+    data = get_or_create_card_image(db, face, card_id)
     return StreamingResponse(data, media_type="image/png")
 
 
