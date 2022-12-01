@@ -200,9 +200,10 @@ def generate_card_prints(start_id, end_id, db):
     )
     i = 0
     for card in cards:
-        i += 1
-        verso.paste(generate_verso_card(card[0], card[1]), anchors_verso[i])
-        recto.paste(generate_recto_card(card[0], card[1]), anchors_recto[i])
+        if card:
+            i += 1
+            verso.paste(generate_verso_card(card[0], card[1]), anchors_verso[i])
+            recto.paste(generate_recto_card(card[0], card[1]), anchors_recto[i])
     recto.convert("CMYK").save(recto_name)
     verso.convert("CMYK").save(verso_name)
     return (
